@@ -5,3 +5,4 @@ langchain-huggingface==0.0.3
 chromadb==0.4.24
 pypdf==4.2.0
 python-dotenv==1.0.1
+fastembed==0.3.0
