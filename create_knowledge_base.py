@@ -1,10 +1,10 @@
 import os
 import glob
+import time
 from dotenv import load_dotenv
 
 from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import CohereEmbeddings
 import chromadb
 from chromadb.config import Settings
@@ -17,7 +17,8 @@ def create_knowledge_base():
     txt_files = glob.glob('./knowledge_base/*.txt')
     
     if not txt_files:
-        raise FileNotFoundError("В папке knowledge_base не найдено ни одного .txt файла!")
+        print("❌ В папке knowledge_base не найдено ни одного .txt файла!")
+        return
     
     print(f"Найдено файлов: {len(txt_files)}")
     
@@ -32,11 +33,10 @@ def create_knowledge_base():
                 break
             except Exception as e:
                 continue
-        else:
-            print(f"❌ Не удалось загрузить {file_path}")
     
     if not all_documents:
-        raise ValueError("Не удалось загрузить ни одного документа!")
+        print("❌ Не удалось загрузить документы!")
+        return
     
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=2000,
@@ -51,7 +51,6 @@ def create_knowledge_base():
         cohere_api_key=os.getenv("COHERE_API_KEY")
     )
     
-    # Создаём Chroma клиент
     client = chromadb.Client(Settings(
         is_persistent=True,
         persist_directory="./chroma_db",
@@ -63,11 +62,8 @@ def create_knowledge_base():
         metadata={"hnsw:space": "cosine"}
     )
     
-    # Добавляем батчами по 50 штук (меньше = меньше шансов превысить лимит)
     batch_size = 50
     total_batches = (len(texts) + batch_size - 1) // batch_size
-    
-    import time
     
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i + batch_size]
@@ -89,22 +85,18 @@ def create_knowledge_base():
                 metadatas=batch_metadatas
             )
             
-            # Задержка между батчами, чтобы не превысить rate limit
             if batch_num < total_batches:
                 print("⏸️ Пауза 5 секунд...")
                 time.sleep(5)
                 
         except Exception as e:
-            print(f"❌ Ошибка в батче {batch_num}: {e}")
-            print("⏸️ Пауза 60 секунд перед повторной попыткой...")
+            print(f"❌ Ошибка: {e}")
+            print("⏸️ Пауза 60 секунд...")
             time.sleep(60)
-            # Повторяем этот батч
-            i -= batch_size
             continue
     
     print(f"✅ База знаний готова! Добавлено {len(texts)} фрагментов.")
     print("📁 Данные сохранены в папке ./chroma_db")
-    print("🚀 Теперь загрузите папку chroma_db на GitHub!")
 
 if __name__ == "__main__":
     create_knowledge_base()
