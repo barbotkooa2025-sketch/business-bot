@@ -12,7 +12,7 @@ from langchain.chains import RetrievalQA
 load_dotenv()
 
 # ⚠️ ЗАМЕНИТЕ ЭТУ ССЫЛКУ НА СВОЮ ИЗ ШАГА 3!
-CHROMA_ZIP_URL = "https://github.com/barbotkooa2025-sketch/business-bot/releases/tag/v1.0.0"
+CHROMA_ZIP_URL = "https://github.com/barbotkooa2025-sketch/business-bot/releases/download/v1.0.0/chroma_db.zip"
 CHROMA_DIR = "./chroma_db"
 CHROMA_ZIP = "./chroma_db.zip"
 
