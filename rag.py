@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import FastEmbedEmbeddings
-from langchain_huggingface import HuggingFaceEndpoint
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_community.llms import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -14,7 +14,6 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 load_dotenv()
 
 def setup_vectorstore():
-    # Ищем все .txt файлы в папке knowledge_base
     txt_files = glob.glob('./knowledge_base/*.txt')
     
     if not txt_files:
@@ -22,7 +21,6 @@ def setup_vectorstore():
     
     print(f"Найдено файлов для загрузки: {len(txt_files)}")
     
-    # Загружаем каждый файл через TextLoader
     all_documents = []
     for file_path in txt_files:
         for encoding in ['utf-8', 'cp1251', 'latin-1']:
@@ -40,15 +38,15 @@ def setup_vectorstore():
     if not all_documents:
         raise ValueError("Не удалось загрузить ни одного документа!")
     
-    # Разбиваем на чанки
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     texts = text_splitter.split_documents(all_documents)
     print(f"Документы разбиты на {len(texts)} фрагментов")
     
-    # Эмбеддинги через FastEmbed (локально, без PyTorch, с поддержкой русского!)
-    print("Загрузка модели эмбеддингов (это займёт ~30 секунд при первом запуске)...")
-    embeddings = FastEmbedEmbeddings(
-        model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    # Эмбеддинги через Hugging Face API (без локальных библиотек!)
+    print("Инициализация эмбеддингов через HF API...")
+    embeddings = HuggingFaceInferenceAPIEmbeddings(
+        api_key=os.getenv("HF_TOKEN"),
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
     
     vectorstore = Chroma.from_documents(
