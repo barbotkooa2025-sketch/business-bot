@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
@@ -45,9 +45,9 @@ def setup_vectorstore():
     texts = text_splitter.split_documents(all_documents)
     print(f"Документы разбиты на {len(texts)} фрагментов")
     
-    # Эмбеддинги через Hugging Face API (НЕ локально — экономим память!)
-    embeddings = HuggingFaceInferenceAPIEmbeddings(
-        api_key=os.getenv("HF_TOKEN"),
+    # Эмбеддинги через FastEmbed (локально, без PyTorch, с поддержкой русского!)
+    print("Загрузка модели эмбеддингов (это займёт ~30 секунд при первом запуске)...")
+    embeddings = FastEmbedEmbeddings(
         model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     )
     
