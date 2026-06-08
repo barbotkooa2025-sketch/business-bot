@@ -5,12 +5,11 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.embeddings import CohereEmbeddings
 from langchain_community.llms import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
-import chromadb
 
 load_dotenv()
 
@@ -43,20 +42,17 @@ def setup_vectorstore():
     texts = text_splitter.split_documents(all_documents)
     print(f"Документы разбиты на {len(texts)} фрагментов")
     
-    # Используем встроенные эмбеддинги ChromaDB (работают локально!)
-    print("Инициализация встроенных эмбеддингов ChromaDB...")
-    client_settings = chromadb.config.Settings(
-        is_persistent=True,
-        persist_directory="./chroma_db",
-        anonymized_telemetry=False
+    # Используем Cohere Embeddings (бесплатный API, отлично работает с русским!)
+    print("Инициализация эмбеддингов через Cohere API...")
+    embeddings = CohereEmbeddings(
+        model="embed-multilingual-v3.0",  # Поддерживает русский язык
+        cohere_api_key=os.getenv("COHERE_API_KEY")
     )
     
-    # ChromaDB использует встроенную модель эмбеддингов по умолчанию
     vectorstore = Chroma.from_documents(
         documents=texts,
-        collection_name="knowledge_base",
-        persist_directory="./chroma_db",
-        client_settings=client_settings
+        embedding=embeddings,
+        persist_directory="./chroma_db"
     )
     print("✅ База знаний готова!")
     return vectorstore
