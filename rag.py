@@ -1,36 +1,49 @@
 import os
+import zipfile
+import urllib.request
 from dotenv import load_dotenv
 
 from langchain_community.vectorstores import Chroma
 from langchain_cohere import CohereEmbeddings
-from langchain_huggingface import HuggingFaceEndpoint
+from langchain_community.llms import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
-
-# Новые импорты для LangChain 1.x
-from langchain_classic.chains.retrieval import create_retrieval_chain
-from langchain_classic.chains.combine_documents.stuff import create_stuff_documents_chain
-
-import chromadb
+from langchain.chains import RetrievalQA
 
 load_dotenv()
 
-def setup_vectorstore():
-    print("📂 Загрузка готовой базы знаний из chroma_db...")
+# ⚠️ ЗАМЕНИТЕ ЭТУ ССЫЛКУ НА СВОЮ ИЗ ШАГА 3!
+CHROMA_ZIP_URL = "https://github.com/barbotkooa2025-sketch/business-bot/releases/tag/v1.0.0"
+CHROMA_DIR = "./chroma_db"
+CHROMA_ZIP = "./chroma_db.zip"
+
+def download_and_extract():
+    """Скачивает и распаковывает базу знаний."""
+    print(" Скачиваю базу знаний...")
+    urllib.request.urlretrieve(CHROMA_ZIP_URL, CHROMA_ZIP)
     
-    if not os.path.exists("./chroma_db"):
-        raise FileNotFoundError("Папка chroma_db не найдена!")
+    print("📦 Распаковываю...")
+    with zipfile.ZipFile(CHROMA_ZIP, 'r') as zip_ref:
+        zip_ref.extractall(".")
+    
+    os.remove(CHROMA_ZIP)
+    print("✅ База знаний готова!")
+
+def setup_vectorstore():
+    print("📂 Загрузка базы знаний...")
+    
+    # Если папки нет — скачиваем и распаковываем
+    if not os.path.exists(CHROMA_DIR):
+        download_and_extract()
     
     embeddings = CohereEmbeddings(
         model="embed-multilingual-v3.0",
         cohere_api_key=os.getenv("COHERE_API_KEY")
     )
     
-    client = chromadb.PersistentClient(path="./chroma_db")
-    
     vectorstore = Chroma(
-        client=client,
-        collection_name="knowledge_base",
-        embedding_function=embeddings
+        persist_directory=CHROMA_DIR,
+        embedding_function=embeddings,
+        collection_name="knowledge_base"
     )
     
     print("✅ База знаний загружена!")
@@ -57,9 +70,16 @@ def get_chain(vectorstore):
 
     Ответ (структурированно, с уважением и ссылками на источники):
     """
-    prompt = PromptTemplate.from_template(template)
+    prompt = PromptTemplate(template=template, input_variables=["context", "question"])
     
     retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     
-    combine_docs_chain = create_stuff_documents_chain(llm, prompt)
-    return create_retrieval_chain(retriever, combine_docs_chain)
+    chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=retriever,
+        chain_type_kwargs={"prompt": prompt},
+        return_source_documents=True
+    )
+    
+    return chain
