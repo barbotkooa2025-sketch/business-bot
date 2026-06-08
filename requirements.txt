@@ -4,3 +4,4 @@ langchain-community==0.0.38
 chromadb==0.4.24
 pypdf==4.2.0
 python-dotenv==1.0.1
+cohere==5.1.0
