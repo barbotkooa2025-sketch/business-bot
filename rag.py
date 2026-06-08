@@ -10,6 +10,8 @@ from langchain_community.llms import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
+import chromadb
+from chromadb.config import Settings
 
 load_dotenv()
 
@@ -38,23 +40,69 @@ def setup_vectorstore():
     if not all_documents:
         raise ValueError("Не удалось загрузить ни одного документа!")
     
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    # Увеличим размер чанка, чтобы уменьшить их количество
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=2000,  # Было 1000
+        chunk_overlap=200
+    )
     texts = text_splitter.split_documents(all_documents)
     print(f"Документы разбиты на {len(texts)} фрагментов")
     
-    # Используем Cohere Embeddings (бесплатный API, отлично работает с русским!)
+    # Инициализация эмбеддингов Cohere
     print("Инициализация эмбеддингов через Cohere API...")
     embeddings = CohereEmbeddings(
-        model="embed-multilingual-v3.0",  # Поддерживает русский язык
+        model="embed-multilingual-v3.0",
         cohere_api_key=os.getenv("COHERE_API_KEY")
     )
     
-    vectorstore = Chroma.from_documents(
-        documents=texts,
-        embedding=embeddings,
-        persist_directory="./chroma_db"
+    # Создаём Chroma клиент вручную для контроля батчинга
+    client = chromadb.Client(Settings(
+        is_persistent=True,
+        persist_directory="./chroma_db",
+        anonymized_telemetry=False
+    ))
+    
+    # Создаём или получаем коллекцию
+    collection = client.get_or_create_collection(
+        name="knowledge_base",
+        metadata={"hnsw:space": "cosine"}
     )
-    print("✅ База знаний готова!")
+    
+    # Добавляем тексты батчами по 96 штук (лимит Cohere)
+    batch_size = 96
+    total_batches = (len(texts) + batch_size - 1) // batch_size
+    
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        batch_num = i // batch_size + 1
+        
+        print(f"Обработка батча {batch_num}/{total_batches} ({len(batch)} фрагментов)...")
+        
+        # Получаем тексты и метаданные
+        batch_texts = [doc.page_content for doc in batch]
+        batch_metadatas = [{"source": doc.metadata.get("source", "unknown")} for doc in batch]
+        batch_ids = [f"doc_{i+j}" for j in range(len(batch))]
+        
+        # Получаем эмбеддинги через Cohere
+        batch_embeddings = embeddings.embed_documents(batch_texts)
+        
+        # Добавляем в Chroma
+        collection.add(
+            ids=batch_ids,
+            documents=batch_texts,
+            embeddings=batch_embeddings,
+            metadatas=batch_metadatas
+        )
+    
+    print(f"✅ База знаний готова! Добавлено {len(texts)} фрагментов.")
+    
+    # Возвращаем Chroma как vectorstore для LangChain
+    vectorstore = Chroma(
+        client=client,
+        collection_name="knowledge_base",
+        embedding_function=embeddings
+    )
+    
     return vectorstore
 
 def get_chain(vectorstore):
