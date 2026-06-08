@@ -6,3 +6,7 @@ chromadb==0.4.24
 pypdf==4.2.0
 python-dotenv==1.0.1
 sentence-transformers==2.7.0
+
+# Устанавливаем PyTorch только для процессора (CPU), без тяжелых библиотек NVIDIA
+torch --extra-index-url https://download.pytorch.org/whl/cpu
+torchvision --extra-index-url https://download.pytorch.org/whl/cpu
