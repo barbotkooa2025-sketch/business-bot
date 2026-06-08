@@ -5,11 +5,12 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.llms import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
+import chromadb
 
 load_dotenv()
 
@@ -42,17 +43,20 @@ def setup_vectorstore():
     texts = text_splitter.split_documents(all_documents)
     print(f"Документы разбиты на {len(texts)} фрагментов")
     
-    # Эмбеддинги через Hugging Face API (без локальных библиотек!)
-    print("Инициализация эмбеддингов через HF API...")
-    embeddings = HuggingFaceInferenceAPIEmbeddings(
-        api_key=os.getenv("HF_TOKEN"),
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    # Используем встроенные эмбеддинги ChromaDB (работают локально!)
+    print("Инициализация встроенных эмбеддингов ChromaDB...")
+    client_settings = chromadb.config.Settings(
+        is_persistent=True,
+        persist_directory="./chroma_db",
+        anonymized_telemetry=False
     )
     
+    # ChromaDB использует встроенную модель эмбеддингов по умолчанию
     vectorstore = Chroma.from_documents(
         documents=texts,
-        embedding=embeddings,
-        persist_directory="./chroma_db"
+        collection_name="knowledge_base",
+        persist_directory="./chroma_db",
+        client_settings=client_settings
     )
     print("✅ База знаний готова!")
     return vectorstore
