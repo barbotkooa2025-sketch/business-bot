@@ -8,7 +8,6 @@ from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 import chromadb
-from chromadb.config import Settings
 
 load_dotenv()
 
@@ -23,11 +22,8 @@ def setup_vectorstore():
         cohere_api_key=os.getenv("COHERE_API_KEY")
     )
     
-    client = chromadb.Client(Settings(
-        is_persistent=True,
-        persist_directory="./chroma_db",
-        anonymized_telemetry=False
-    ))
+    # Новый API для Chroma
+    client = chromadb.PersistentClient(path="./chroma_db")
     
     vectorstore = Chroma(
         client=client,
