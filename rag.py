@@ -1,6 +1,4 @@
 import os
-import zipfile
-import urllib.request
 from dotenv import load_dotenv
 
 from langchain_community.vectorstores import Chroma
@@ -11,40 +9,38 @@ from langchain.chains import RetrievalQA
 
 load_dotenv()
 
-# Ссылка на ваш релиз - ПРОВЕРЬТЕ, ЧТО ОНА РАБОТАЕТ!
-CHROMA_ZIP_URL = "https://github.com/barbotkooa2025-sketch/business-bot/releases/download/v1.0.0/chroma_db.zip"
-CHROMA_DIR = "./chroma_db"
-CHROMA_ZIP = "./chroma_db.zip"
-
-def download_and_extract():
-    print("📥 Скачиваю базу знаний...")
-    urllib.request.urlretrieve(CHROMA_ZIP_URL, CHROMA_ZIP)
-    
-    print("📦 Распаковываю...")
-    with zipfile.ZipFile(CHROMA_ZIP, 'r') as zip_ref:
-        zip_ref.extractall(".")
-    
-    os.remove(CHROMA_ZIP)
-    print("✅ База знаний готова!")
+# Используем вашу родную папку!
+PERSIST_DIRECTORY = "./knowledge_base_chroma" 
 
 def setup_vectorstore():
-    print("📂 Загрузка базы знаний...")
-    
-    if not os.path.exists(CHROMA_DIR):
-        download_and_extract()
+    print("📂 Инициализация базы знаний...")
     
     embeddings = CohereEmbeddings(
         model="embed-multilingual-v3.0",
         cohere_api_key=os.getenv("COHERE_API_KEY")
     )
     
-    vectorstore = Chroma(
-        persist_directory=CHROMA_DIR,
-        embedding_function=embeddings,
-        collection_name="knowledge_base"
-    )
+    # Если база уже создана - просто загружаем её
+    if os.path.exists(PERSIST_DIRECTORY):
+        print("♻️ База уже существует, загружаю...")
+        vectorstore = Chroma(
+            persist_directory=PERSIST_DIRECTORY,
+            embedding_function=embeddings,
+            collection_name="knowledge_base"
+        )
+    else:
+        # Если базы нет - создаем её из ваших файлов
+        print("🛠 Базы нет. Запускаю create_knowledge_base.py...")
+        os.system("python create_knowledge_base.py")
+        
+        print("✅ База создана, загружаю...")
+        vectorstore = Chroma(
+            persist_directory=PERSIST_DIRECTORY,
+            embedding_function=embeddings,
+            collection_name="knowledge_base"
+        )
     
-    print("✅ База знаний загружена!")
+    print("✅ База знаний готова!")
     return vectorstore
 
 def get_chain(vectorstore):
