@@ -1,7 +1,7 @@
 python-telegram-bot==20.7
 langchain==0.1.20
 langchain-community==0.0.38
-langchain-cohere==0.1.0
+langchain-cohere>=0.3.0
 langchain-text-splitters==0.0.2
 chromadb==0.4.24
 pypdf==4.2.0
