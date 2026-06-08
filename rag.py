@@ -11,14 +11,13 @@ from langchain.chains import RetrievalQA
 
 load_dotenv()
 
-# ⚠️ ЗАМЕНИТЕ ЭТУ ССЫЛКУ НА СВОЮ ИЗ ШАГА 3!
+# Ссылка на ваш релиз - ПРОВЕРЬТЕ, ЧТО ОНА РАБОТАЕТ!
 CHROMA_ZIP_URL = "https://github.com/barbotkooa2025-sketch/business-bot/releases/download/v1.0.0/chroma_db.zip"
 CHROMA_DIR = "./chroma_db"
 CHROMA_ZIP = "./chroma_db.zip"
 
 def download_and_extract():
-    """Скачивает и распаковывает базу знаний."""
-    print(" Скачиваю базу знаний...")
+    print("📥 Скачиваю базу знаний...")
     urllib.request.urlretrieve(CHROMA_ZIP_URL, CHROMA_ZIP)
     
     print("📦 Распаковываю...")
@@ -31,7 +30,6 @@ def download_and_extract():
 def setup_vectorstore():
     print("📂 Загрузка базы знаний...")
     
-    # Если папки нет — скачиваем и распаковываем
     if not os.path.exists(CHROMA_DIR):
         download_and_extract()
     
