@@ -1,17 +1,18 @@
 import os
+import glob
+from dotenv import load_dotenv
+
 from langchain_community.document_loaders import TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_huggingface import HuggingFaceEndpoint, HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
-from dotenv import load_dotenv
-import glob
 
 load_dotenv()
 
-# 1. Загрузка и векторизация базы знаний (выполняется один раз при старте)
 def setup_vectorstore():
     # Ищем все .txt файлы в папке knowledge_base
     txt_files = glob.glob('./knowledge_base/*.txt')
@@ -21,24 +22,20 @@ def setup_vectorstore():
     
     print(f"Найдено файлов для загрузки: {len(txt_files)}")
     
-    # Загружаем каждый файл через TextLoader (лёгкий загрузчик)
+    # Загружаем каждый файл через TextLoader
     all_documents = []
     for file_path in txt_files:
-        try:
-            loader = TextLoader(file_path, encoding='utf-8')
-            docs = loader.load()
-            all_documents.extend(docs)
-            print(f"✅ Загружен: {file_path}")
-        except Exception as e:
-            print(f"⚠️ Ошибка при загрузке {file_path}: {e}")
-            # Пробуем загрузить в другой кодировке
+        for encoding in ['utf-8', 'cp1251', 'latin-1']:
             try:
-                loader = TextLoader(file_path, encoding='cp1251')
+                loader = TextLoader(file_path, encoding=encoding)
                 docs = loader.load()
                 all_documents.extend(docs)
-                print(f"✅ Загружен (cp1251): {file_path}")
-            except Exception as e2:
-                print(f"❌ Не удалось загрузить {file_path}: {e2}")
+                print(f"✅ Загружен ({encoding}): {file_path}")
+                break
+            except Exception as e:
+                continue
+        else:
+            print(f"❌ Не удалось загрузить {file_path}")
     
     if not all_documents:
         raise ValueError("Не удалось загрузить ни одного документа!")
@@ -48,20 +45,20 @@ def setup_vectorstore():
     texts = text_splitter.split_documents(all_documents)
     print(f"Документы разбиты на {len(texts)} фрагментов")
     
-    # Используем бесплатные эмбеддинги Hugging Face
-    embeddings = HuggingFaceEmbeddings(
+    # Эмбеддинги через Hugging Face API (НЕ локально — экономим память!)
+    embeddings = HuggingFaceInferenceAPIEmbeddings(
+        api_key=os.getenv("HF_TOKEN"),
         model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     )
     
     vectorstore = Chroma.from_documents(
-        documents=texts, 
-        embedding=embeddings, 
+        documents=texts,
+        embedding=embeddings,
         persist_directory="./chroma_db"
     )
     print("✅ База знаний готова!")
     return vectorstore
 
-# 2. Настройка LLM и промпта
 def get_chain(vectorstore):
     llm = HuggingFaceEndpoint(
         repo_id=os.getenv("HF_MODEL_ID"),
@@ -73,7 +70,6 @@ def get_chain(vectorstore):
     template = """Ты — эксперт по еврейскому менеджменту, бизнес-процессам и философии. 
     Ты отвечаешь на вопросы, опираясь на принципы Торы, Талмуда, Шульхан Арух (особенно раздел Хошен Мишпат) 
     и современную еврейскую бизнес-этику. 
-    Если вопрос касается контрактов, упоминай важность честности, избегания онаа (обмана) и соблюдения договоренностей.
     Если информации в контексте недостаточно, честно скажи об этом, но постарайся дать общий этический совет.
     
     Контекст из базы знаний:
@@ -82,7 +78,7 @@ def get_chain(vectorstore):
     Вопрос пользователя:
     {question}
 
-    Ответ (структурированно, с уважением и ссылками на источники, если они есть в контексте):
+    Ответ (структурированно, с уважением и ссылками на источники):
     """
     prompt = PromptTemplate.from_template(template)
     
