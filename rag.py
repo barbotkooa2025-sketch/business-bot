@@ -5,8 +5,11 @@ from langchain_community.vectorstores import Chroma
 from langchain_cohere import CohereEmbeddings
 from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
+
+# Новые пути импорта для LangChain 1.x
+from langchain.chains.retrieval import create_retrieval_chain
+from langchain.chains.combine_documents.stuff import create_stuff_documents_chain
+
 import chromadb
 
 load_dotenv()
@@ -22,7 +25,6 @@ def setup_vectorstore():
         cohere_api_key=os.getenv("COHERE_API_KEY")
     )
     
-    # Новый API для Chroma
     client = chromadb.PersistentClient(path="./chroma_db")
     
     vectorstore = Chroma(
