@@ -6,9 +6,9 @@ from langchain_cohere import CohereEmbeddings
 from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 
-# Новые пути импорта для LangChain 1.x
-from langchain.chains.retrieval import create_retrieval_chain
-from langchain.chains.combine_documents.stuff import create_stuff_documents_chain
+# Новые импорты для LangChain 1.x
+from langchain_classic.chains.retrieval import create_retrieval_chain
+from langchain_classic.chains.combine_documents.stuff import create_stuff_documents_chain
 
 import chromadb
 
