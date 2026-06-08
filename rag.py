@@ -2,8 +2,8 @@ import os
 from dotenv import load_dotenv
 
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import CohereEmbeddings
-from langchain_community.llms import HuggingFaceEndpoint
+from langchain_cohere import CohereEmbeddings
+from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -15,17 +15,14 @@ load_dotenv()
 def setup_vectorstore():
     print("📂 Загрузка готовой базы знаний из chroma_db...")
     
-    # Проверяем, существует ли папка chroma_db
     if not os.path.exists("./chroma_db"):
-        raise FileNotFoundError("Папка chroma_db не найдена! Запустите create_knowledge_base.py локально и загрузите chroma_db на GitHub.")
+        raise FileNotFoundError("Папка chroma_db не найдена!")
     
-    # Инициализация эмбеддингов (нужны для поиска)
     embeddings = CohereEmbeddings(
         model="embed-multilingual-v3.0",
         cohere_api_key=os.getenv("COHERE_API_KEY")
     )
     
-    # Загружаем существующую базу
     client = chromadb.Client(Settings(
         is_persistent=True,
         persist_directory="./chroma_db",
