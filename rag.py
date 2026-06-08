@@ -1,9 +1,6 @@
 import os
-import glob
 from dotenv import load_dotenv
 
-from langchain_community.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import CohereEmbeddings
 from langchain_community.llms import HuggingFaceEndpoint
@@ -16,93 +13,32 @@ from chromadb.config import Settings
 load_dotenv()
 
 def setup_vectorstore():
-    txt_files = glob.glob('./knowledge_base/*.txt')
+    print("📂 Загрузка готовой базы знаний из chroma_db...")
     
-    if not txt_files:
-        raise FileNotFoundError("В папке knowledge_base не найдено ни одного .txt файла!")
+    # Проверяем, существует ли папка chroma_db
+    if not os.path.exists("./chroma_db"):
+        raise FileNotFoundError("Папка chroma_db не найдена! Запустите create_knowledge_base.py локально и загрузите chroma_db на GitHub.")
     
-    print(f"Найдено файлов для загрузки: {len(txt_files)}")
-    
-    all_documents = []
-    for file_path in txt_files:
-        for encoding in ['utf-8', 'cp1251', 'latin-1']:
-            try:
-                loader = TextLoader(file_path, encoding=encoding)
-                docs = loader.load()
-                all_documents.extend(docs)
-                print(f"✅ Загружен ({encoding}): {file_path}")
-                break
-            except Exception as e:
-                continue
-        else:
-            print(f"❌ Не удалось загрузить {file_path}")
-    
-    if not all_documents:
-        raise ValueError("Не удалось загрузить ни одного документа!")
-    
-    # Увеличим размер чанка, чтобы уменьшить их количество
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=2000,  # Было 1000
-        chunk_overlap=200
-    )
-    texts = text_splitter.split_documents(all_documents)
-    print(f"Документы разбиты на {len(texts)} фрагментов")
-    
-    # Инициализация эмбеддингов Cohere
-    print("Инициализация эмбеддингов через Cohere API...")
+    # Инициализация эмбеддингов (нужны для поиска)
     embeddings = CohereEmbeddings(
         model="embed-multilingual-v3.0",
         cohere_api_key=os.getenv("COHERE_API_KEY")
     )
     
-    # Создаём Chroma клиент вручную для контроля батчинга
+    # Загружаем существующую базу
     client = chromadb.Client(Settings(
         is_persistent=True,
         persist_directory="./chroma_db",
         anonymized_telemetry=False
     ))
     
-    # Создаём или получаем коллекцию
-    collection = client.get_or_create_collection(
-        name="knowledge_base",
-        metadata={"hnsw:space": "cosine"}
-    )
-    
-    # Добавляем тексты батчами по 96 штук (лимит Cohere)
-    batch_size = 96
-    total_batches = (len(texts) + batch_size - 1) // batch_size
-    
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i:i + batch_size]
-        batch_num = i // batch_size + 1
-        
-        print(f"Обработка батча {batch_num}/{total_batches} ({len(batch)} фрагментов)...")
-        
-        # Получаем тексты и метаданные
-        batch_texts = [doc.page_content for doc in batch]
-        batch_metadatas = [{"source": doc.metadata.get("source", "unknown")} for doc in batch]
-        batch_ids = [f"doc_{i+j}" for j in range(len(batch))]
-        
-        # Получаем эмбеддинги через Cohere
-        batch_embeddings = embeddings.embed_documents(batch_texts)
-        
-        # Добавляем в Chroma
-        collection.add(
-            ids=batch_ids,
-            documents=batch_texts,
-            embeddings=batch_embeddings,
-            metadatas=batch_metadatas
-        )
-    
-    print(f"✅ База знаний готова! Добавлено {len(texts)} фрагментов.")
-    
-    # Возвращаем Chroma как vectorstore для LangChain
     vectorstore = Chroma(
         client=client,
         collection_name="knowledge_base",
         embedding_function=embeddings
     )
     
+    print("✅ База знаний загружена!")
     return vectorstore
 
 def get_chain(vectorstore):
